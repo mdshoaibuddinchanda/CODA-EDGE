@@ -27,30 +27,35 @@ DATASET_REGISTRY = {
         "hf_path": "Salesforce/wikitext",
         "hf_config": "wikitext-103-v1",
         "text_field": "text",
+        # wikitext has train / validation / test
         "splits": {"train": "train", "validation": "validation", "test": "test"},
     },
+    # pile-of-law only has train / validation (75/25 split, no separate test)
+    # courtlistener_opinions covers all US federal courts including SCOTUS
     "scotus": {
         "hf_path": "pile-of-law/pile-of-law",
-        "hf_config": "scotus",
+        "hf_config": "courtlistener_opinions",
         "text_field": "text",
-        "splits": {"train": "train", "validation": "validation", "test": "test"},
+        "splits": {"train": "train", "validation": "validation", "test": "validation"},
     },
+    # Same underlying config — federal circuit opinions are a subset of courtlistener
     "federal_circuit": {
         "hf_path": "pile-of-law/pile-of-law",
-        "hf_config": "federal_courts_opinions",
+        "hf_config": "courtlistener_opinions",
         "text_field": "text",
-        "splits": {"train": "train", "validation": "validation", "test": "test"},
+        "splits": {"train": "train", "validation": "validation", "test": "validation"},
     },
+    # scientific_papers has train / validation only
     "arxiv": {
         "hf_path": "scientific_papers",
         "hf_config": "arxiv",
         "text_field": "abstract",
-        "splits": {"train": "train", "validation": "validation", "test": "test"},
+        "splits": {"train": "train", "validation": "validation", "test": "validation"},
     },
     # MIMIC-III requires credentialed PhysioNet access.
     # Fallback: PubMed abstracts (open access).
     "mimic": {
-        "hf_path": None,  # local only — set local_path= or use fallback
+        "hf_path": None,  # local only — pass local_path= or use fallback
         "hf_config": None,
         "text_field": "text",
         "splits": {},
