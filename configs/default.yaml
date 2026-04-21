@@ -1,0 +1,19 @@
+model:
+  name: "microsoft/Phi-3-mini-4k-instruct"
+  quantization: "4bit"
+  device_map: "auto"
+  torch_dtype: "float16"
+  trust_remote_code: true
+
+coda:
+  calibration_samples: 100
+  layer_indices: [0, 6, 12, 18, 24, -1]  # -1 = final pre-lm-head
+  alpha: 0.8
+  mmd_threshold: null  # set per-domain after analysis
+  covariance_regularization: 1.0e-5  # for numerical stability
+
+data:
+  source_domain: "wikitext"
+  target_domains: ["scotus", "federal_circuit", "mimic", "arxiv"]
+  max_seq_length: 2048
+  stride: 512

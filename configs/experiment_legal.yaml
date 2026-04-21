@@ -1,0 +1,12 @@
+defaults:
+  - default
+
+data:
+  source_domain: "wikitext"
+  target_domains: ["scotus", "federal_circuit"]
+
+coda:
+  calibration_samples: 100
+  layer_indices: [18]
+  alpha: 0.8
+  mmd_threshold: 0.05

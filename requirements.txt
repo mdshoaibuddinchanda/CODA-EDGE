@@ -1,0 +1,32 @@
+# CODA — dependencies pinned for Kaggle GPU (CUDA 12.2, Python 3.10, Ubuntu 20.04)
+# Run:  pip install -r requirements.txt
+
+# PyTorch — CUDA 12.1 wheel runs on CUDA 12.2 (backward compatible)
+--extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.2.2+cu121
+torchvision==0.17.2+cu121
+
+# HuggingFace
+transformers==4.40.2
+accelerate==0.29.3
+datasets==2.19.1
+
+# 4-bit quantization (CUDA only — skipped automatically on CPU)
+bitsandbytes==0.43.1
+
+# Numerical — BLAS-accelerated (OpenBLAS on Kaggle)
+numpy==1.26.4
+scipy==1.13.0
+scikit-learn==1.4.2
+
+# GPU similarity search (CUDA 12 wheel)
+faiss-gpu-cu12==1.7.3
+
+# Visualisation
+matplotlib==3.8.4
+seaborn==0.13.2
+
+# Utilities
+tqdm==4.66.2
+PyYAML==6.0.1
+langdetect==1.0.9
