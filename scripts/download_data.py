@@ -129,7 +129,7 @@ def main() -> None:
 
     domain_bar.close()
     logger.info("\nAll downloads complete. Files are in data/raw/")
-    logger.info("Run the experiment with: python run_experiment.py --config " + args.config)
+    logger.info("Run the experiment with: python main.py --config " + args.config)
 
 
 if __name__ == "__main__":
