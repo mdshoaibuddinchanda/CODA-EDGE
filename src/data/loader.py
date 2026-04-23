@@ -33,17 +33,17 @@ DATASET_REGISTRY = {
     # pile-of-law only has train / validation (75/25 split, no separate test)
     # courtlistener_opinions covers all US federal courts including SCOTUS
     "scotus": {
-        "hf_path": "pile-of-law/pile-of-law",
-        "hf_config": "courtlistener_opinions",
+        "hf_path": "common-pile/caselaw_access_project_filtered",
+        "hf_config": None,
         "text_field": "text",
-        "splits": {"train": "train", "validation": "validation", "test": "validation"},
+        "splits": {"train": "train", "validation": "train", "test": "train"},
     },
-    # Same underlying config — federal circuit opinions are a subset of courtlistener
+    # Same dataset — federal circuit opinions are a subset of caselaw
     "federal_circuit": {
-        "hf_path": "pile-of-law/pile-of-law",
-        "hf_config": "courtlistener_opinions",
+        "hf_path": "common-pile/caselaw_access_project_filtered",
+        "hf_config": None,
         "text_field": "text",
-        "splits": {"train": "train", "validation": "validation", "test": "validation"},
+        "splits": {"train": "train", "validation": "train", "test": "train"},
     },
     # scientific_papers has train / validation only
     "arxiv": {
@@ -87,7 +87,6 @@ def _hf_load_with_retry(hf_path: str, hf_config: str, split: str, streaming: boo
                 hf_config,
                 split=split,
                 streaming=streaming,
-                trust_remote_code=True,
             )
         except Exception as exc:
             last_exc = exc
