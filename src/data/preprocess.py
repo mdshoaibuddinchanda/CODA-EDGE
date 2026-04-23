@@ -47,7 +47,7 @@ def tokenize_and_chunk(
     def _flush(batch):
         if not batch:
             return
-        encoded = tokenizer.batch_encode_plus(
+        encoded = tokenizer(
             batch,
             add_special_tokens=False,
             return_attention_mask=False,
