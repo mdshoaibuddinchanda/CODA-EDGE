@@ -226,8 +226,8 @@ def load_domain(
 
     logger.info(f"Downloaded {count:,} samples from '{domain}' ({split})")
 
-    # Write cache (skip when streaming with a cap — partial data)
-    if use_cache and (not streaming or max_samples is None):
+    # Always write cache so re-runs skip the download entirely
+    if use_cache and records:
         _write_cache(cache_file, records)
 
 

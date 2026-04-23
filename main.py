@@ -1,11 +1,11 @@
 """
 CODA — Covariance-based Domain Adaptation Pipeline
 ====================================================
-Entry point.  Runs the full pipeline end-to-end, then verifies all outputs.
+Entry point. Runs the full pipeline end-to-end, then verifies all outputs.
 
 Usage
 -----
-    python main.py                                          # default config
+    python main.py
     python main.py --config configs/experiment_legal.yaml
     python main.py --config configs/default.yaml --skip-verify
 """
@@ -22,13 +22,9 @@ from src.utils.logging_utils import setup_logger
 from src.utils.memory import clear_gpu_cache, log_gpu_memory
 
 
-# ── helpers ──────────────────────────────────────────────────────────────────
-
 def _stage(bar: tqdm, label: str) -> None:
     bar.set_description(f"[{label}]")
 
-
-# ── main pipeline ─────────────────────────────────────────────────────────────
 
 def run(config_path: str) -> None:
     cfg = load_config(config_path)
@@ -39,8 +35,16 @@ def run(config_path: str) -> None:
     logger.info(f"Alpha  : {cfg.coda.alpha}  |  Layers: {cfg.coda.layer_indices}")
     logger.info(f"Domains: {cfg.data.target_domains}")
 
+    # Gate layer: use layer 18 if present, else middle layer, else first layer
+    layer_indices = cfg.coda.layer_indices
+    if 18 in layer_indices:
+        gate_layer = 18
+    else:
+        gate_layer = layer_indices[len(layer_indices) // 2]
+    logger.info(f"MMD gate layer: {gate_layer}")
+
     domains = cfg.data.target_domains
-    n_stages = 3 + len(domains)  # model + source-preprocess + source-hidden + N domains
+    n_stages = 3 + len(domains)
 
     overall = tqdm(
         total=n_stages,
@@ -63,7 +67,7 @@ def run(config_path: str) -> None:
     log_gpu_memory("after model load")
     overall.update(1)
 
-    # ── 2. Source domain preprocessing ───────────────────────────────────────
+    # ── 2. Source domain — train split only ───────────────────────────────────
     _stage(overall, f"Preprocessing {cfg.data.source_domain}")
     from src.data.loader import load_domain
     from src.data.validation import validate_stream
@@ -76,15 +80,25 @@ def run(config_path: str) -> None:
         source_texts, tokenizer, cfg.data.source_domain,
         max_seq_length=cfg.data.max_seq_length,
         stride=cfg.data.stride,
-        output_path=f"data/processed/{cfg.data.source_domain}_tokenized.npy",
+        output_path=f"data/processed/{cfg.data.source_domain}_train_tokenized.npy",
     )
     overall.update(1)
 
-    # ── 3. Source hidden states ───────────────────────────────────────────────
+    # ── 3. Source hidden states (calibration_samples sequences from train) ────
+    # Using calibration_samples from config — no magic number
     _stage(overall, "Source hidden states")
     from src.model.inference import extract_hidden_states
+
+    n_source_calib = cfg.coda.calibration_samples
+    if len(source_seqs) < n_source_calib:
+        logger.warning(
+            f"Source has only {len(source_seqs)} sequences, "
+            f"less than calibration_samples={n_source_calib}. Using all."
+        )
+        n_source_calib = len(source_seqs)
+
     source_hidden = extract_hidden_states(
-        model, source_seqs[:200], cfg.coda.layer_indices,
+        model, source_seqs[:n_source_calib], layer_indices,
         save_dir="data/calibration", domain="source",
     )
     overall.update(1)
@@ -101,53 +115,64 @@ def run(config_path: str) -> None:
         logger.info(f"\n{'='*60}\nDomain: {domain}\n{'='*60}")
 
         with tqdm(
-            total=6,
-            desc=f"  {domain}",
-            unit="step",
-            leave=False,
-            dynamic_ncols=True,
+            total=6, desc=f"  {domain}", unit="step",
+            leave=False, dynamic_ncols=True,
         ) as step:
 
-            # 4a — preprocess train
-            step.set_description(f"  {domain} | preprocess train")
-            target_texts = validate_stream(load_domain(domain, split="train", use_cache=True))
-            target_seqs = tokenize_and_chunk(
-                target_texts, tokenizer, domain,
+            # ── 4a: train split → calibration sequences ───────────────────────
+            # IMPORTANT: calibration uses TRAIN split only.
+            # Test split is loaded separately below — zero overlap guaranteed.
+            step.set_description(f"  {domain} | load train")
+            train_texts = validate_stream(load_domain(domain, split="train", use_cache=True))
+            train_seqs = tokenize_and_chunk(
+                train_texts, tokenizer, domain,
                 max_seq_length=cfg.data.max_seq_length,
                 stride=cfg.data.stride,
-                output_path=f"data/processed/{domain}_tokenized.npy",
+                output_path=f"data/processed/{domain}_train_tokenized.npy",
             )
             step.update(1)
 
-            # 4b — preprocess test
-            step.set_description(f"  {domain} | preprocess test")
-            target_test_texts = validate_stream(load_domain(domain, split="test", use_cache=True))
-            target_test_seqs = tokenize_and_chunk(
-                target_test_texts, tokenizer, domain,
+            # ── 4b: test split → evaluation sequences ─────────────────────────
+            # Loaded from a completely separate file: data/raw/{domain}_test.jsonl
+            # No overlap with train_seqs is possible.
+            step.set_description(f"  {domain} | load test")
+            test_texts = validate_stream(load_domain(domain, split="test", use_cache=True))
+            test_seqs = tokenize_and_chunk(
+                test_texts, tokenizer, domain,
                 max_seq_length=cfg.data.max_seq_length,
                 stride=cfg.data.stride,
+                output_path=f"data/processed/{domain}_test_tokenized.npy",
             )
             step.update(1)
 
-            # 4c — extract target hidden states
+            # ── 4c: extract target hidden states from TRAIN only ──────────────
             step.set_description(f"  {domain} | hidden states")
-            calib_seqs = target_seqs[: cfg.coda.calibration_samples]
+            n_target_calib = cfg.coda.calibration_samples
+            if len(train_seqs) < n_target_calib:
+                logger.warning(
+                    f"[{domain}] Only {len(train_seqs)} train sequences available, "
+                    f"less than calibration_samples={n_target_calib}. Using all."
+                )
+                n_target_calib = len(train_seqs)
+
+            # Calibration sequences: first N from TRAIN (never from test)
+            calib_seqs = train_seqs[:n_target_calib]
             target_hidden = extract_hidden_states(
-                model, calib_seqs, cfg.coda.layer_indices,
+                model, calib_seqs, layer_indices,
                 save_dir="data/calibration", domain=domain,
             )
             step.update(1)
 
-            # 4d — baseline perplexity
+            # ── 4d: baseline PPL on TEST split ────────────────────────────────
             step.set_description(f"  {domain} | baseline PPL")
             base_ppl = compute_perplexity(
-                model, target_test_seqs,
+                model, test_seqs,
                 output_path=str(results_dir / f"{domain}_base_ppl.json"),
             )
             logger.info(f"[{domain}] Baseline PPL: {base_ppl:.4f}")
             step.update(1)
 
-            # 4e — calibrate CODA + MMD gate
+            # ── 4e: calibrate CODA + MMD gate ─────────────────────────────────
             step.set_description(f"  {domain} | calibrate CODA")
             adapter = CODAAdapter(
                 model,
@@ -155,10 +180,9 @@ def run(config_path: str) -> None:
                 regularization=cfg.coda.covariance_regularization,
             )
             adapter.calibrate(
-                source_hidden, target_hidden, cfg.coda.layer_indices,
+                source_hidden, target_hidden, layer_indices,
                 covariance_dir="outputs/covariance", domain=domain,
             )
-            gate_layer = 18 if 18 in cfg.coda.layer_indices else cfg.coda.layer_indices[0]
             apply_coda = adapter.check_mmd_gate(
                 source_hidden, target_hidden,
                 gate_layer=gate_layer,
@@ -166,12 +190,12 @@ def run(config_path: str) -> None:
             )
             step.update(1)
 
-            # 4f — CODA perplexity
+            # ── 4f: CODA PPL on TEST split ────────────────────────────────────
             step.set_description(f"  {domain} | CODA PPL")
             if apply_coda:
                 with adapter:
                     coda_ppl = compute_perplexity(
-                        model, target_test_seqs,
+                        model, test_seqs,
                         output_path=str(results_dir / f"{domain}_coda_ppl.json"),
                     )
                 logger.info(
@@ -187,6 +211,10 @@ def run(config_path: str) -> None:
         metrics = {
             "domain": domain,
             "alpha": cfg.coda.alpha,
+            "calibration_split": "train",
+            "evaluation_split": "test",
+            "calibration_sequences": n_target_calib,
+            "test_sequences": len(test_seqs),
             "base_ppl": base_ppl,
             "coda_ppl": coda_ppl,
             "ppl_improvement": base_ppl - coda_ppl,
@@ -194,6 +222,7 @@ def run(config_path: str) -> None:
         }
         with open(results_dir / f"{domain}_metrics.json", "w", encoding="utf-8") as f:
             json.dump(metrics, f, indent=2)
+        logger.info(f"[{domain}] Metrics saved.")
 
         clear_gpu_cache()
         overall.update(1)
@@ -201,8 +230,6 @@ def run(config_path: str) -> None:
     overall.close()
     logger.info("Pipeline complete.")
 
-
-# ── entry point ───────────────────────────────────────────────────────────────
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -216,21 +243,17 @@ Examples:
         """,
     )
     parser.add_argument(
-        "--config",
-        default="configs/default.yaml",
-        help="Path to YAML config file (default: configs/default.yaml)",
+        "--config", default="configs/default.yaml",
+        help="Path to YAML config file",
     )
     parser.add_argument(
-        "--skip-verify",
-        action="store_true",
-        help="Skip output verification step after pipeline completes",
+        "--skip-verify", action="store_true",
+        help="Skip output verification after pipeline completes",
     )
     args = parser.parse_args()
 
-    # Run pipeline
     run(args.config)
 
-    # Run output verification (CP8)
     if not args.skip_verify:
         from verify_outputs import verify
         ok = verify(args.config)

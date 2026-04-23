@@ -1,6 +1,5 @@
 """Load and validate YAML configuration."""
 import argparse
-import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -53,8 +52,6 @@ def _dict_to_config(d: Dict[str, Any]) -> Config:
 
 
 def _validate(cfg: Config) -> None:
-    required_keys = ["model", "coda", "data"]
-    # Basic sanity checks
     assert 0.0 <= cfg.coda.alpha <= 1.0, "alpha must be in [0, 1]"
     assert cfg.coda.calibration_samples > 0, "calibration_samples must be positive"
     assert cfg.data.max_seq_length > 0, "max_seq_length must be positive"

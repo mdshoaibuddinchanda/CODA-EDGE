@@ -26,7 +26,7 @@ from src.utils.logging_utils import setup_logger
 
 logger = setup_logger("download_data")
 
-SPLITS = ["train", "validation", "test"]
+SPLITS = ["train", "test"]  # validation used only for ablations; add manually if needed
 
 
 def download_domain(
@@ -72,8 +72,8 @@ def main() -> None:
         "--splits",
         nargs="+",
         default=SPLITS,
-        choices=SPLITS,
-        help="Which splits to download (default: train validation test)",
+        choices=["train", "validation", "test"],
+        help="Which splits to download (default: train test)",
     )
     parser.add_argument(
         "--local-path",
