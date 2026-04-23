@@ -8,14 +8,15 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Domain-specific cleaning patterns
 _WIKITEXT_HYPHEN = re.compile(r" @-@ ")
 _WIKITEXT_HEADING = re.compile(r"^=+.*=+$", re.MULTILINE)
 _MIMIC_PHI = re.compile(r"\[\*\*.*?\*\*\]")
 
+# Minimum characters before we bother tokenizing
+_MIN_CHARS = 20
+
 
 def clean_text(text: str, domain: str) -> str:
-    """Apply domain-specific cleaning rules."""
     if domain == "wikitext":
         text = _WIKITEXT_HYPHEN.sub("-", text)
         text = _WIKITEXT_HEADING.sub("", text)
@@ -31,51 +32,68 @@ def tokenize_and_chunk(
     max_seq_length: int = 2048,
     stride: int = 512,
     output_path: Optional[str] = None,
+    batch_size: int = 1000,
 ) -> np.ndarray:
     """
-    Tokenize all texts, concatenate, and chunk into fixed-length sequences.
+    Tokenize texts in batches, concatenate all tokens, chunk into fixed-length sequences.
 
-    Returns:
-        np.ndarray of shape (n_chunks, max_seq_length) with token IDs.
-        Optionally saves to output_path as .npy file.
+    Uses batch_encode_plus for ~10x speedup over per-document encode().
     """
     all_ids: List[int] = []
+    batch: List[str] = []
+    total_docs = 0
+    skipped = 0
+
+    def _flush(batch):
+        if not batch:
+            return
+        encoded = tokenizer.batch_encode_plus(
+            batch,
+            add_special_tokens=False,
+            return_attention_mask=False,
+        )
+        for ids in encoded["input_ids"]:
+            all_ids.extend(ids)
 
     for text in texts:
         cleaned = clean_text(text, domain)
-        if not cleaned:
+        if len(cleaned) < _MIN_CHARS:
+            skipped += 1
             continue
-        ids = tokenizer.encode(cleaned, add_special_tokens=False)
-        all_ids.extend(ids)
+        batch.append(cleaned)
+        total_docs += 1
+        if len(batch) >= batch_size:
+            _flush(batch)
+            batch = []
+            if total_docs % 50000 == 0:
+                logger.info(f"  [{domain}] tokenized {total_docs:,} docs, {len(all_ids):,} tokens so far")
 
-    logger.info(f"Total tokens for '{domain}': {len(all_ids):,}")
+    _flush(batch)  # flush remainder
+
+    logger.info(
+        f"[{domain}] {total_docs:,} docs tokenized, {skipped:,} skipped, "
+        f"{len(all_ids):,} total tokens"
+    )
 
     if len(all_ids) < max_seq_length:
         raise ValueError(
-            f"Not enough tokens ({len(all_ids)}) to form a single chunk of {max_seq_length}."
+            f"Not enough tokens ({len(all_ids):,}) for chunk size {max_seq_length}. "
+            f"Download more data or reduce max_seq_length."
         )
 
     # Chunk with stride
     chunks = []
     start = 0
     while start + max_seq_length <= len(all_ids):
-        chunk = all_ids[start : start + max_seq_length]
-        chunks.append(chunk)
+        chunks.append(all_ids[start: start + max_seq_length])
         start += stride
 
     result = np.array(chunks, dtype=np.int32)
-    logger.info(f"Created {len(chunks)} chunks of length {max_seq_length} (stride={stride})")
-
-    # Validate: no unexpected padding tokens
-    pad_id = tokenizer.pad_token_id
-    if pad_id is not None:
-        pad_count = (result == pad_id).sum()
-        if pad_count > 0:
-            logger.warning(f"Found {pad_count} pad tokens in chunked sequences.")
+    logger.info(f"[{domain}] {len(chunks):,} chunks of length {max_seq_length} (stride={stride})")
 
     if output_path:
         Path(output_path).parent.mkdir(parents=True, exist_ok=True)
         np.save(output_path, result)
-        logger.info(f"Saved tokenized sequences to {output_path}")
+        logger.info(f"[{domain}] Saved → {output_path}")
 
     return result
