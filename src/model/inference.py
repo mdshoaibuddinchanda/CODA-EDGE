@@ -51,7 +51,7 @@ def extract_hidden_states(
     model,
     token_sequences: np.ndarray,
     layer_indices: List[int],
-    batch_size: int = 4,
+    batch_size: int = 1,
     pooling: str = "last",
     save_dir: Optional[str] = None,
     domain: str = "unknown",

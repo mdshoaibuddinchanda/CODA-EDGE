@@ -15,5 +15,5 @@ coda:
 data:
   source_domain: "wikitext"
   target_domains: ["scotus", "federal_circuit", "mimic", "arxiv"]
-  max_seq_length: 2048
-  stride: 512
+  max_seq_length: 512
+  stride: 256

@@ -1,12 +1,12 @@
-defaults:
-  - default
-
-data:
-  source_domain: "wikitext"
-  target_domains: ["arxiv"]
-
 coda:
   calibration_samples: 100
   layer_indices: [18]
   alpha: 0.8
-  mmd_threshold: 0.05
+  mmd_threshold: null
+  covariance_regularization: 1.0e-5
+
+data:
+  source_domain: "wikitext"
+  target_domains: ["arxiv"]
+  max_seq_length: 512
+  stride: 256

@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 def compute_perplexity(
     model,
     token_sequences: np.ndarray,
-    batch_size: int = 4,
+    batch_size: int = 1,
     output_path: Optional[str] = None,
 ) -> float:
     """
