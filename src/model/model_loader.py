@@ -103,7 +103,7 @@ def load_model_and_tokenizer(
         model_name,
         quantization_config=quant_config,
         device_map=effective_device_map,
-        torch_dtype=torch_dtype,
+        dtype=torch_dtype,
         cache_dir=str(MODEL_CACHE_DIR),
         trust_remote_code=trust_remote_code,
     )

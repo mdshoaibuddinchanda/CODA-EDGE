@@ -105,7 +105,11 @@ def extract_hidden_states(
                 input_ids = torch.tensor(batch, dtype=torch.long, device=device)
                 attention_mask = torch.ones_like(input_ids)
 
-                model(input_ids=input_ids, attention_mask=attention_mask)
+                model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    use_cache=False,
+                )
 
                 for idx in layer_indices:
                     # Hook appended one tensor per forward call; pop it

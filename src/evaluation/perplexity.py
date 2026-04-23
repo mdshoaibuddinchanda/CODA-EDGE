@@ -59,7 +59,7 @@ def compute_perplexity(
             # Place on model's device — handles device_map="auto" correctly
             input_ids = torch.tensor(batch, dtype=torch.long, device=device)
 
-            outputs = model(input_ids=input_ids, labels=input_ids)
+            outputs = model(input_ids=input_ids, labels=input_ids, use_cache=False)
             loss = outputs.loss
 
             if torch.isnan(loss) or torch.isinf(loss):

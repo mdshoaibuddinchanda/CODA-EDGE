@@ -19,8 +19,9 @@ numpy==1.26.4
 scipy==1.13.0
 scikit-learn==1.4.2
 
-# GPU similarity search (CUDA 12 wheel)
-faiss-gpu-cu12==1.7.3
+# Similarity search — faiss-cpu works on all platforms including Windows
+# On Linux/Kaggle with CUDA, swap this for: faiss-gpu-cu12==1.7.3
+faiss-cpu>=1.7.4
 
 # Visualisation
 matplotlib==3.8.4
