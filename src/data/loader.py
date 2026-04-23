@@ -30,20 +30,19 @@ DATASET_REGISTRY = {
         # wikitext has train / validation / test
         "splits": {"train": "train", "validation": "validation", "test": "test"},
     },
-    # pile-of-law only has train / validation (75/25 split, no separate test)
-    # courtlistener_opinions covers all US federal courts including SCOTUS
+    # HFforLegal/case-law — 534k US court cases, parquet, no loading script
+    # Covers SCOTUS, federal circuit, state courts
     "scotus": {
-        "hf_path": "common-pile/caselaw_access_project_filtered",
+        "hf_path": "HFforLegal/case-law",
         "hf_config": None,
-        "text_field": "text",
-        "splits": {"train": "train", "validation": "train", "test": "train"},
+        "text_field": "document",
+        "splits": {"train": "us", "validation": "us", "test": "us"},
     },
-    # Same dataset — federal circuit opinions are a subset of caselaw
     "federal_circuit": {
-        "hf_path": "common-pile/caselaw_access_project_filtered",
+        "hf_path": "HFforLegal/case-law",
         "hf_config": None,
-        "text_field": "text",
-        "splits": {"train": "train", "validation": "train", "test": "train"},
+        "text_field": "document",
+        "splits": {"train": "us", "validation": "us", "test": "us"},
     },
     # scientific_papers has train / validation only
     "arxiv": {

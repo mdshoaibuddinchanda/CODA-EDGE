@@ -4,7 +4,7 @@
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.2.2+cu121-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
 [![CUDA](https://img.shields.io/badge/CUDA-12.2-76B900?logo=nvidia&logoColor=white)](https://developer.nvidia.com/cuda-toolkit)
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-Transformers-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co/)
-[![Platform](https://img.shields.io/badge/Platform-Kaggle%20GPU-20BEFF?logo=kaggle&logoColor=white)](https://www.kaggle.com/)
+[![Platform](https://img.shields.io/badge/Platform-Google%20Colab%20%7C%20Kaggle-orange?logo=googlecolab&logoColor=white)](colab_run.ipynb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 > Adapt a frozen language model to any target domain at inference time — no fine-tuning, no gradient updates, ~100 calibration samples.
@@ -26,57 +26,36 @@ An **MMD gate** decides whether the distribution shift is large enough to warran
 
 ---
 
-## Running on Kaggle
+## Quick Start
 
-This project is pinned to the Kaggle GPU environment: **CUDA 12.2, Python 3.10, Ubuntu 20.04**.
+### Option A — Google Colab (recommended)
 
-### Step 1 — Enable GPU accelerator
+Open `colab_run.ipynb` in Colab and run all cells. Everything is automated.
 
-In your Kaggle notebook, go to **Settings → Accelerator → GPU T4 x2** (or P100).
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/mdshoaibuddinchanda/CODA-EDGE/blob/main/colab_run.ipynb)
 
-### Step 2 — Install dependencies
+### Option B — Local / Kaggle
+
+**1. Install**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-All packages are pinned to exact versions tested on Kaggle. PyTorch is installed from the CUDA 12.1 wheel, which is fully compatible with Kaggle's CUDA 12.2 runtime. FAISS uses the `faiss-gpu-cu12` wheel for GPU-accelerated similarity search.
-
-### Step 3 — Download datasets
+**2. Download datasets**
 
 ```bash
-python scripts/download_data.py
+python scripts/download_data.py --domains wikitext
+python scripts/download_data.py --domains scotus federal_circuit arxiv pubmed --max-samples 50000
 ```
 
-Downloads all domains and caches them to `data/raw/`. Re-running skips already-downloaded domains.
+**3. Run**
 
 ```bash
-# Specific domains only
-python scripts/download_data.py --domains wikitext scotus
-
-# Quick smoke test — 1000 samples per split
-python scripts/download_data.py --max-samples 1000
-```
-
-> **MIMIC-III** requires credentialed [PhysioNet](https://physionet.org/) access. Without it the pipeline falls back to **PubMed abstracts** automatically. To use your own file: `--local-path /path/to/NOTEEVENTS.csv`
-
-### Step 4 — Run the full pipeline
-
-```bash
-python main.py
-```
-
-This runs the complete pipeline end-to-end and verifies all outputs at the end.
-
-```bash
-# Specific experiment
 python main.py --config configs/experiment_legal.yaml
-
-# Skip output verification
-python main.py --skip-verify
 ```
 
-### Step 5 — Verify outputs
+**4. Verify**
 
 ```bash
 python verify_outputs.py --config configs/experiment_legal.yaml
@@ -149,11 +128,11 @@ coda/
 
 | Domain | HuggingFace ID | Access | Fallback |
 | --- | --- | --- | --- |
-| WikiText-103 | `Salesforce/wikitext` | Open | — |
-| SCOTUS Opinions | `pile-of-law/pile-of-law` (scotus) | Open | — |
-| Federal Circuit | `pile-of-law/pile-of-law` (federal_courts_opinions) | Open | — |
+| WikiText-103 | `Salesforce/wikitext` (wikitext-103-v1) | Open | — |
+| SCOTUS + Federal Circuit | `HFforLegal/case-law` (us split) | Open | — |
 | MIMIC-III Clinical Notes | PhysioNet (credentialed) | Restricted | PubMed abstracts |
-| ArXiv CS Abstracts | `scientific_papers/arxiv` | Open | — |
+| PubMed Abstracts | `pubmed_qa` (pqa_unlabeled) | Open | — |
+| ArXiv CS Abstracts | `scientific_papers` (arxiv) | Open | — |
 
 ---
 

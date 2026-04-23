@@ -26,6 +26,32 @@ def _stage(bar: tqdm, label: str) -> None:
     bar.set_description(f"[{label}]")
 
 
+def _load_or_tokenize(domain, split, tokenizer, cfg, output_path):
+    """
+    Load pre-tokenized .npy if it exists (e.g. tokenized by Colab Cell 4),
+    otherwise tokenize from raw JSONL cache.
+    """
+    import logging
+    import numpy as np
+    from pathlib import Path as _Path
+    _log = logging.getLogger("coda")
+    npy = _Path(output_path)
+    if npy.exists():
+        _log.info(f"Loading pre-tokenized sequences from {output_path}")
+        return np.load(output_path)
+
+    from src.data.loader import load_domain
+    from src.data.validation import validate_stream
+    from src.data.preprocess import tokenize_and_chunk
+    texts = validate_stream(load_domain(domain, split=split, use_cache=True))
+    return tokenize_and_chunk(
+        texts, tokenizer, domain,
+        max_seq_length=cfg.data.max_seq_length,
+        stride=cfg.data.stride,
+        output_path=output_path,
+    )
+
+
 def run(config_path: str) -> None:
     cfg = load_config(config_path)
     logger = setup_logger("coda")
@@ -69,17 +95,12 @@ def run(config_path: str) -> None:
 
     # ── 2. Source domain — train split only ───────────────────────────────────
     _stage(overall, f"Preprocessing {cfg.data.source_domain}")
-    from src.data.loader import load_domain
-    from src.data.validation import validate_stream
-    from src.data.preprocess import tokenize_and_chunk
 
-    source_texts = validate_stream(
-        load_domain(cfg.data.source_domain, split="train", use_cache=True)
-    )
-    source_seqs = tokenize_and_chunk(
-        source_texts, tokenizer, cfg.data.source_domain,
-        max_seq_length=cfg.data.max_seq_length,
-        stride=cfg.data.stride,
+    source_seqs = _load_or_tokenize(
+        domain=cfg.data.source_domain,
+        split="train",
+        tokenizer=tokenizer,
+        cfg=cfg,
         output_path=f"data/processed/{cfg.data.source_domain}_train_tokenized.npy",
     )
     overall.update(1)
@@ -115,27 +136,17 @@ def run(config_path: str) -> None:
         ) as step:
 
             # ── 4a: train split → calibration sequences ───────────────────────
-            # IMPORTANT: calibration uses TRAIN split only.
-            # Test split is loaded separately below — zero overlap guaranteed.
             step.set_description(f"  {domain} | load train")
-            train_texts = validate_stream(load_domain(domain, split="train", use_cache=True))
-            train_seqs = tokenize_and_chunk(
-                train_texts, tokenizer, domain,
-                max_seq_length=cfg.data.max_seq_length,
-                stride=cfg.data.stride,
+            train_seqs = _load_or_tokenize(
+                domain=domain, split="train", tokenizer=tokenizer, cfg=cfg,
                 output_path=f"data/processed/{domain}_train_tokenized.npy",
             )
             step.update(1)
 
             # ── 4b: test split → evaluation sequences ─────────────────────────
-            # Loaded from a completely separate file: data/raw/{domain}_test.jsonl
-            # No overlap with train_seqs is possible.
             step.set_description(f"  {domain} | load test")
-            test_texts = validate_stream(load_domain(domain, split="test", use_cache=True))
-            test_seqs = tokenize_and_chunk(
-                test_texts, tokenizer, domain,
-                max_seq_length=cfg.data.max_seq_length,
-                stride=cfg.data.stride,
+            test_seqs = _load_or_tokenize(
+                domain=domain, split="test", tokenizer=tokenizer, cfg=cfg,
                 output_path=f"data/processed/{domain}_test_tokenized.npy",
             )
             step.update(1)
