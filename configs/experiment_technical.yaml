@@ -10,3 +10,5 @@ data:
   target_domains: ["arxiv"]
   max_seq_length: 512
   stride: 256
+  eval_sequences: 500
+  source_sequences: 100

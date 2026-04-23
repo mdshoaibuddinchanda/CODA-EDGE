@@ -85,17 +85,12 @@ def run(config_path: str) -> None:
     overall.update(1)
 
     # ── 3. Source hidden states (calibration_samples sequences from train) ────
-    # Using calibration_samples from config — no magic number
+    # Using calibration_samples and source_sequences cap from config
     _stage(overall, "Source hidden states")
     from src.model.inference import extract_hidden_states
 
-    n_source_calib = cfg.coda.calibration_samples
-    if len(source_seqs) < n_source_calib:
-        logger.warning(
-            f"Source has only {len(source_seqs)} sequences, "
-            f"less than calibration_samples={n_source_calib}. Using all."
-        )
-        n_source_calib = len(source_seqs)
+    n_source_calib = min(cfg.coda.calibration_samples, cfg.data.source_sequences, len(source_seqs))
+    logger.info(f"Using {n_source_calib} source sequences for hidden state extraction.")
 
     source_hidden = extract_hidden_states(
         model, source_seqs[:n_source_calib], layer_indices,
@@ -163,10 +158,12 @@ def run(config_path: str) -> None:
             )
             step.update(1)
 
-            # ── 4d: baseline PPL on TEST split ────────────────────────────────
+            # ── 4d: baseline PPL on TEST split (capped at eval_sequences) ────
             step.set_description(f"  {domain} | baseline PPL")
+            eval_seqs = test_seqs[:cfg.data.eval_sequences]
+            logger.info(f"[{domain}] Evaluating PPL on {len(eval_seqs)}/{len(test_seqs)} test sequences.")
             base_ppl = compute_perplexity(
-                model, test_seqs,
+                model, eval_seqs,
                 output_path=str(results_dir / f"{domain}_base_ppl.json"),
             )
             logger.info(f"[{domain}] Baseline PPL: {base_ppl:.4f}")
@@ -190,12 +187,12 @@ def run(config_path: str) -> None:
             )
             step.update(1)
 
-            # ── 4f: CODA PPL on TEST split ────────────────────────────────────
+            # ── 4f: CODA PPL on TEST split (same capped eval_seqs) ───────────
             step.set_description(f"  {domain} | CODA PPL")
             if apply_coda:
                 with adapter:
                     coda_ppl = compute_perplexity(
-                        model, test_seqs,
+                        model, eval_seqs,
                         output_path=str(results_dir / f"{domain}_coda_ppl.json"),
                     )
                 logger.info(
@@ -214,7 +211,7 @@ def run(config_path: str) -> None:
             "calibration_split": "train",
             "evaluation_split": "test",
             "calibration_sequences": n_target_calib,
-            "test_sequences": len(test_seqs),
+            "test_sequences": len(eval_seqs),
             "base_ppl": base_ppl,
             "coda_ppl": coda_ppl,
             "ppl_improvement": base_ppl - coda_ppl,

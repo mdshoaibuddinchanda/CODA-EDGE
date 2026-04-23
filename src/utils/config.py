@@ -29,8 +29,10 @@ class CodaConfig:
 class DataConfig:
     source_domain: str = "wikitext"
     target_domains: List[str] = field(default_factory=lambda: ["scotus"])
-    max_seq_length: int = 2048
-    stride: int = 512
+    max_seq_length: int = 512
+    stride: int = 256
+    eval_sequences: int = 500      # max sequences used for PPL evaluation
+    source_sequences: int = 100    # max sequences used for source hidden states
 
 
 @dataclass
