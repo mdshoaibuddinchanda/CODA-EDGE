@@ -1,0 +1,32 @@
+# ============================================================================
+# LAPTOP / LOW-VRAM CONFIG — for smoke testing only (RTX 3050, 4GB VRAM)
+#
+# DO NOT use these numbers in a paper.
+# Use configs/experiment_legal.yaml on Kaggle (T4/P100) for real results.
+#
+# What's reduced and why:
+#   max_seq_length: 512  — 2048 causes OOM on 4GB VRAM
+#   eval_sequences: 200  — keeps runtime under 30 min
+#   source_sequences: 50 — enough to verify pipeline runs
+# ============================================================================
+model:
+  name: "microsoft/Phi-3-mini-4k-instruct"
+  quantization: "4bit"
+  device_map: "auto"
+  torch_dtype: "float16"
+  trust_remote_code: true
+
+coda:
+  calibration_samples: 50
+  layer_indices: [18]
+  alpha: 0.8
+  mmd_threshold: null
+  covariance_regularization: 1.0e-5
+
+data:
+  source_domain: "wikitext"
+  target_domains: ["scotus"]
+  max_seq_length: 512
+  stride: 256
+  eval_sequences: 200
+  source_sequences: 50

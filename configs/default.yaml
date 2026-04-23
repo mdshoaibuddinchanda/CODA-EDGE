@@ -15,7 +15,7 @@ coda:
 data:
   source_domain: "wikitext"
   target_domains: ["scotus", "federal_circuit", "mimic", "arxiv"]
-  max_seq_length: 512
-  stride: 256
-  eval_sequences: 500      # max sequences used for PPL evaluation
-  source_sequences: 100    # max sequences used for source hidden states
+  max_seq_length: 2048
+  stride: 512
+  eval_sequences: 500
+  source_sequences: 100
