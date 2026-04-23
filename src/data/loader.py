@@ -65,6 +65,8 @@ DATASET_REGISTRY = {
         "hf_path": "pubmed_qa",
         "hf_config": "pqa_unlabeled",
         "text_field": "long_answer",
+        # PubMed has no splits — all data is in 'train'
+        # We use max_samples to create synthetic train/test from the same pool
         "splits": {"train": "train", "validation": "train", "test": "train"},
     },
 }
