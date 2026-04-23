@@ -104,6 +104,7 @@ def load_model_and_tokenizer(
         quantization_config=quant_config,
         device_map=effective_device_map,
         dtype=torch_dtype,
+        attn_implementation="eager",
         cache_dir=str(MODEL_CACHE_DIR),
         trust_remote_code=trust_remote_code,
     )
