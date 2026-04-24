@@ -100,18 +100,25 @@ def load_model_and_tokenizer(
     # ── model load ────────────────────────────────────────────────────────────
     logger.info(f"Loading model: {model_name}  (device_map={effective_device_map})")
     import warnings
+
+    # Try `dtype=` (newer Transformers >= 4.45), fall back to `torch_dtype=` (older)
+    load_kwargs = dict(
+        quantization_config=quant_config,
+        device_map=effective_device_map,
+        attn_implementation="eager",
+        cache_dir=str(MODEL_CACHE_DIR),
+        trust_remote_code=trust_remote_code,
+    )
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", message=".*torch_dtype.*deprecated.*")
-        warnings.filterwarnings("ignore", message=".*resume_download.*deprecated.*")
-        model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            quantization_config=quant_config,
-            device_map=effective_device_map,
-            torch_dtype=torch_dtype,
-            attn_implementation="eager",
-            cache_dir=str(MODEL_CACHE_DIR),
-            trust_remote_code=trust_remote_code,
-        )
+        warnings.filterwarnings("ignore", message=".*resume_download.*")
+        try:
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name, dtype=torch_dtype, **load_kwargs
+            )
+        except TypeError:
+            model = AutoModelForCausalLM.from_pretrained(
+                model_name, torch_dtype=torch_dtype, **load_kwargs
+            )
     model.eval()
 
     # ── CP3: VRAM check ───────────────────────────────────────────────────────

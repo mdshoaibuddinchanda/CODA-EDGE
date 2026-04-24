@@ -12,7 +12,7 @@ accelerate==0.29.3
 datasets==2.19.1
 
 # 4-bit quantization (CUDA only — skipped automatically on CPU)
-bitsandbytes==0.43.1
+bitsandbytes>=0.46.1
 
 # Numerical — BLAS-accelerated (OpenBLAS on Kaggle)
 numpy==1.26.4
